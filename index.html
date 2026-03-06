@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>我的第一个钢筋节点</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: Arial, Helvetica, sans-serif;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">简易钢筋节点 - 拖动鼠标旋转/缩放</div>
+
+    <!-- 1. 引入 Three.js 核心库和轨道控制器 (通过CDN, 即网络链接) -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- 2. 我们的 JavaScript 代码将写在这里 -->
+    <script type="module">
+        // 所有代码将在下一步填入
+        // ==============================================
+// 1. 创建场景 (相当于Revit里的三维视图)
+// ==============================================
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111122); // 深蓝黑色背景
+
+// ==============================================
+// 2. 创建相机 (相当于Revit里的相机视图)
+// ==============================================
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(5, 5, 10); // 把相机放在右前上方
+camera.lookAt(0, 0, 0);         // 让相机看向原点
+
+// ==============================================
+// 3. 创建渲染器 (负责把3D画面显示在网页上)
+// ==============================================
+const renderer = new THREE.WebGLRenderer({ antialias: true }); // 抗锯齿
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true; // 开启阴影（虽然本例没用到，但习惯开启）
+document.body.appendChild(renderer.domElement); // 把画布添加到网页中
+
+// ==============================================
+// 4. 添加轨道控制器 (实现鼠标拖拽旋转/缩放)
+// ==============================================
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; // 开启惯性效果，让旋转更平滑
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = true;
+
+// ==============================================
+// 5. 添加灯光 (没有灯光就看不到物体颜色)
+// ==============================================
+// 环境光 - 提供基础照明
+const ambientLight = new THREE.AmbientLight(0x404060);
+scene.add(ambientLight);
+
+// 两盏点光源 - 模拟从不同方向来的光，让钢筋有立体感
+const light1 = new THREE.PointLight(0xffaa00, 1, 20);
+light1.position.set(5, 10, 7);
+scene.add(light1);
+
+const light2 = new THREE.PointLight(0x0066ff, 1, 20);
+light2.position.set(-5, 3, 5);
+scene.add(light2);
+
+// 辅助线 - 添加一个网格地面和坐标轴，帮助我们理解空间位置 (可选)
+const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
+scene.add(gridHelper);
+// const axesHelper = new THREE.AxesHelper(5); // 红X, 绿Y, 蓝Z，初学者可以取消注释看看
+// scene.add(axesHelper);
+
+// ==============================================
+// 6. 创建钢筋和节点 (用基本几何体拼凑)
+// ==============================================
+
+// --- 创建一个函数来生成钢筋 (圆柱体) ---
+function createRebar(length, radius, color, position, rotation) {
+    // 圆柱体几何体: 半径顶部=底部，高度，径向分段数(使圆更平滑)
+    const geometry = new THREE.CylinderGeometry(radius, radius, length, 16);
+    const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.1 });
+    const cylinder = new THREE.Mesh(geometry, material);
+    cylinder.position.set(position.x, position.y, position.z);
+    cylinder.rotation.set(rotation.x, rotation.y, rotation.z);
+    // 让圆柱体产生阴影
+    cylinder.castShadow = true;
+    cylinder.receiveShadow = true;
+    return cylinder;
+}
+
+// --- 创建节点核心区 (一个立方体，模拟钢筋交汇的节点) ---
+const nodeGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+const nodeMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 }); // 半透明
+const nodeCube = new THREE.Mesh(nodeGeo, nodeMat);
+nodeCube.position.set(0, 0, 0);
+nodeCube.castShadow = true;
+nodeCube.receiveShadow = true;
+scene.add(nodeCube);
+
+// --- 创建四根钢筋，沿着X轴和Z轴方向 ---
+// 钢筋1: 沿X轴方向 (需要旋转圆柱体，使其轴线指向X轴: 默认圆柱体轴线是Y轴，所以绕Z轴旋转90度)
+const rebar1 = createRebar(4.0, 0.2, 0xcc5500, { x: 2, y: 0, z: 0 }, { x: 0, y: 0, z: Math.PI/2 });
+scene.add(rebar1);
+const rebar2 = createRebar(4.0, 0.2, 0xcc5500, { x: -2, y: 0, z: 0 }, { x: 0, y: 0, z: Math.PI/2 });
+scene.add(rebar2);
+
+// 钢筋3: 沿Z轴方向 (同样需要旋转，使轴线指向Z轴: 绕X轴旋转90度)
+const rebar3 = createRebar(4.0, 0.2, 0xcc5500, { x: 0, y: 0, z: 2 }, { x: Math.PI/2, y: 0, z: 0 });
+scene.add(rebar3);
+const rebar4 = createRebar(4.0, 0.2, 0xcc5500, { x: 0, y: 0, z: -2 }, { x: Math.PI/2, y: 0, z: 0 });
+scene.add(rebar4);
+
+// 可选：再添加一根竖向的钢筋 (沿Y轴，默认轴线就是Y，所以不需要旋转)
+const rebarY = createRebar(3.0, 0.2, 0x3399ff, { x: 0.8, y: 1.5, z: 0.8 }, { x: 0, y: 0, z: 0 });
+scene.add(rebarY);
+
+// ==============================================
+// 7. 动画循环 (让画面持续更新，并处理控制器的惯性)
+// ==============================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    // 更新控制器状态（必须，否则惯性效果不会生效）
+    controls.update();
+
+    // 渲染场景
+    renderer.render(scene, camera);
+}
+
+animate(); // 启动动画循环
+
+// ==============================================
+// 8. 处理窗口大小变化 (让画面自适应)
+// ==============================================
+window.addEventListener('resize', onWindowResize, false);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+    </script>
+</body>
+</html>
